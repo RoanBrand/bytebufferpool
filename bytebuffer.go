@@ -1,6 +1,9 @@
 package bytebufferpool
 
-import "io"
+import (
+	"io"
+	"sync/atomic"
+)
 
 // ByteBuffer provides byte buffer, which can be used for minimizing
 // memory allocations.
@@ -10,10 +13,18 @@ import "io"
 //
 // Use Get for obtaining an empty byte buffer.
 type ByteBuffer struct {
+	// Refs counts references to the instance.
+	// Returned to pool only after it reaches 0.
+	Refs int32
 
 	// B is a byte buffer to use in append-like workloads.
 	// See example code for details.
 	B []byte
+}
+
+// AddRef adds another reference, or increments user count of b.
+func (b *ByteBuffer) AddRef() {
+	atomic.AddInt32(&b.Refs, 1)
 }
 
 // Len returns the size of the byte buffer.

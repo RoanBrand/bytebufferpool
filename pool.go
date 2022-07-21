@@ -48,10 +48,13 @@ func Get() *ByteBuffer { return defaultPool.Get() }
 func (p *Pool) Get() *ByteBuffer {
 	v := p.pool.Get()
 	if v != nil {
-		return v.(*ByteBuffer)
+		b := v.(*ByteBuffer)
+		b.Refs = 1
+		return b
 	}
 	return &ByteBuffer{
-		B: make([]byte, 0, atomic.LoadUint64(&p.defaultSize)),
+		Refs: 1,
+		B:    make([]byte, 0, atomic.LoadUint64(&p.defaultSize)),
 	}
 }
 
@@ -76,6 +79,16 @@ func (p *Pool) Put(b *ByteBuffer) {
 		b.Reset()
 		p.pool.Put(b)
 	}
+}
+
+// FreeIfLastRef will run p.Put if all users of b has finished
+// using it.
+func (p *Pool) FreeIfLastRef(b *ByteBuffer) {
+	if atomic.AddInt32(&b.Refs, -1) > 0 {
+		return
+	}
+
+	p.Put(b)
 }
 
 func (p *Pool) calibrate() {
